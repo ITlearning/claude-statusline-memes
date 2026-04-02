@@ -10,6 +10,15 @@
 Claude Code 프롬프트 입력창 아래에 표시되는 statusline 플러그인.
 모델명, rate limit (5h/7d), 컨텍스트 사용량, 그리고 시간대별 한국어 개발자 밈을 보여줍니다.
 
+### 밈 기여하기
+
+여러분이 만든 밈도 함께 써요! 참여할수록 더 풍성해집니다 🎉
+
+- **PR**: `memes.json`에 직접 추가해서 Pull Request
+- **이슈**: [GitHub Issues](https://github.com/ITlearning/claude-statusline-memes/issues)에 원하는 문구 남겨주시면 추가할게요
+
+어떤 형식이든 환영합니다. 개발자 공감 밈, 시간대별 유머, AI 관련 드립 모두 OK!
+
 ### 미리보기
 
 시간대별로 다른 밈이 표시됩니다:
@@ -87,15 +96,6 @@ claude-sonnet-4-6 │ 5h ░░░░░  8% │ 7d ██░░░ 36% │ Ctx 
 
 사용량에 따라 초록 → 노랑 → 빨강으로 색상이 바뀝니다.
 
-### 밈 기여하기
-
-여러분이 만든 밈도 함께 써요! 참여할수록 더 풍성해집니다 🎉
-
-- **PR**: `memes.json`에 직접 추가해서 Pull Request
-- **이슈**: [GitHub Issues](https://github.com/ITlearning/claude-statusline-memes/issues)에 원하는 문구 남겨주시면 추가할게요
-
-어떤 형식이든 환영합니다. 개발자 공감 밈, 시간대별 유머, AI 관련 드립 모두 OK!
-
 ### 커스터마이즈 스킬
 
 설치 후 Claude Code에서 다음 커맨드로 statusline을 입맛대로 바꿀 수 있습니다:
@@ -113,6 +113,15 @@ claude-sonnet-4-6 │ 5h ░░░░░  8% │ 7d ██░░░ 36% │ Ctx 
 
 A Claude Code statusline plugin that displays below the prompt input.
 Shows model name, rate limits (5h/7d), context window usage, and time-based Korean developer humor.
+
+### Contributing Memes
+
+The more people contribute, the better the memes get! 🎉
+
+- **PR**: Add your lines directly to `memes.json` and open a Pull Request
+- **Issue**: Drop your ideas in [GitHub Issues](https://github.com/ITlearning/claude-statusline-memes/issues) and I'll add them
+
+Developer relatable humor, time-of-day jokes, AI memes — all welcome. Any language is fine too!
 
 ### Preview
 
@@ -190,15 +199,6 @@ Create `~/.claude/statusline-meme-config.json` to customize:
 | `⎇ branch` | Current git branch |
 
 Colors shift green → yellow → red as usage increases.
-
-### Contributing Memes
-
-The more people contribute, the better the memes get! 🎉
-
-- **PR**: Add your lines directly to `memes.json` and open a Pull Request
-- **Issue**: Drop your ideas in [GitHub Issues](https://github.com/ITlearning/claude-statusline-memes/issues) and I'll add them
-
-Developer relatable humor, time-of-day jokes, AI memes — all welcome. Any language is fine too!
 
 ### Customization Skills
 
