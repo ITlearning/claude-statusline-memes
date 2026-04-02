@@ -6,6 +6,7 @@ data = json.load(sys.stdin)
 
 # Rate limit cache helpers
 _RL_CACHE_PATH = os.path.expanduser('~/.claude/statusline-rl-cache.json')
+_RL_API_TTL = 300  # refresh from OAuth API every 5 minutes
 
 def _load_rl_cache():
     try:
@@ -23,6 +24,20 @@ def _save_rl_cache(**kwargs):
         with open(tmp, 'w') as f:
             json.dump(cache, f)
         os.replace(tmp, _RL_CACHE_PATH)
+    except Exception:
+        pass
+
+def _refresh_rl_from_api_background():
+    fetch_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fetch-rl.py')
+    if not os.path.exists(fetch_script):
+        return
+    try:
+        subprocess.Popen(
+            [sys.executable, fetch_script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
     except Exception:
         pass
 
@@ -279,14 +294,16 @@ fh = fh_obj.get('used_percentage')
 sd = sd_obj.get('used_percentage')
 ctx_pct = (data.get('context_window') or {}).get('used_percentage')
 
-# Merge-update cache with any live rate limit data
+# Merge-update cache with any live rate limit data from Claude Code stdin
 if fh is not None:
     _save_rl_cache(five_hour=fh_obj)
 if sd is not None:
     _save_rl_cache(seven_day=sd_obj)
 
-# Load cache for 5h/7d fallback only
-_rl_cache = _load_rl_cache() if (fh is None or sd is None) else {}
+# Load cache for fallback; trigger API refresh if stale
+_rl_cache = _load_rl_cache()
+if time.time() - _rl_cache.get('api_fetched_at', 0) > _RL_API_TTL:
+    _refresh_rl_from_api_background()
 _cached_fh = _rl_cache.get('five_hour') or {}
 _cached_sd = _rl_cache.get('seven_day') or {}
 

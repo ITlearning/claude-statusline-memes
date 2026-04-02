@@ -8,6 +8,10 @@ if [ -z "$PLUGIN_ROOT" ]; then
     exit 0
 fi
 SCRIPT_PATH="${PLUGIN_ROOT}/scripts/statusline.py"
+FETCH_RL_SCRIPT="${PLUGIN_ROOT}/scripts/fetch-rl.py"
+
+# Refresh rate limit cache in background on every session start
+python3 "$FETCH_RL_SCRIPT" &
 
 # Ensure settings.json exists
 if [ ! -f "$SETTINGS" ]; then
