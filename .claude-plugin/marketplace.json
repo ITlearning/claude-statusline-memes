@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Claude Code statusline plugins by tabber",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "plugins": [
     {
       "name": "claude-statusline-memes",
       "source": "./",
       "description": "Claude Code statusline with Korean developer memes — shows model, rate limits, context usage, and time-based humor",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "keywords": ["statusline", "memes", "korean", "productivity"]
     }
   ]
