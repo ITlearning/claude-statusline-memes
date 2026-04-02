@@ -48,6 +48,9 @@ claude-sonnet-4-6 │ 5h ██░░░ 43% │ 7d █░░░░ 19% │ Ctx 
 claude-sonnet-4-6 │ 5h ░░░░░  8% │ 7d ██░░░ 36% │ Ctx █░░░░░ 22% │ 🌃 context window 날아가기 3, 2, 1... │ ⎇ main
 ```
 
+<img width="782" height="94" alt="image" src="https://github.com/user-attachments/assets/96590002-d6a9-4f72-88eb-f06f5e6e4d7f" />
+
+
 ### 설치
 
 **직접 설치:**
