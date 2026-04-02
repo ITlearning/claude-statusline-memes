@@ -1,6 +1,6 @@
 {
   "name": "claude-statusline-memes",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Claude Code statusline with Korean developer memes — shows model, rate limits, context usage, and time-based humor",
   "author": {
     "name": "tabber"
