@@ -4,6 +4,25 @@ from datetime import datetime
 
 data = json.load(sys.stdin)
 
+# Rate limit cache helpers
+_RL_CACHE_PATH = os.path.expanduser('~/.claude/statusline-rl-cache.json')
+
+def _load_rl_cache():
+    try:
+        with open(_RL_CACHE_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_rl_cache(fh_obj, sd_obj):
+    try:
+        tmp = _RL_CACHE_PATH + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump({'five_hour': fh_obj, 'seven_day': sd_obj}, f)
+        os.replace(tmp, _RL_CACHE_PATH)
+    except Exception:
+        pass
+
 # Load meme config
 _config_path = os.path.expanduser('~/.claude/statusline-meme-config.json')
 try:
@@ -96,7 +115,6 @@ BLUE    = '\033[34m'
 PINK    = '\033[95m'
 
 _AI_MEMES_FALLBACK = [
-    # Claude Code 밈
     "해결할 수 있습니다! (Claude Code를 키며)",
     "Claude한테 물어봤더니 더 헷갈림...",
     "AI가 짠 코드라 나는 모름",
@@ -121,44 +139,7 @@ _AI_MEMES_FALLBACK = [
     "AI한테 설명하다가 내가 이해함",
     "이번엔 진짜 내가 짠 거임 (거짓말)",
     "Claude가 deprecated API 썼다...",
-    "럭키비키잖아~ (빌드 성공)",
-
-    # 2025 밈 개발자 버전
-    "칠 가이 모드 (버그? 내일의 내가 고침)",
-    "칠 가이 모드 (에러? 내일의 내가 봄)",
-    "칠 가이 모드 (코드리뷰? 나중에)",
-    "빌드 터짐 괜찮아 딩딩딩~",
-    "커밋 날아감 괜찮아 딩딩딩~",
-    "에러 터짐 괜찮아 딩딩딩~",
-    "머지 충돌 괜찮아 딩딩딩~",
-    "에러 메시지 보고 허거덩거덩스...",
-    "스택트레이스 보고 허거덩거덩스...",
-    "코드 리뷰 코멘트 보고 허거덩거덩스...",
-    "WOW 섹시 코드... (내가 짰다)",
-    "WOW 섹시 커밋 메시지",
-    "WOW 섹시 에러 (처음 보는 에러)",
-    "오늘 코드 매끈매끈하다~",
-    "리팩토링 후 코드 매끈매끈하다~",
-    "이 커밋 매끈매끈하다~",
-    "이 버그? 내가 그걸 모를까... (알면서 놔둠)",
-    "기술부채? 내가 그걸 모를까...",
-    "TODO 주석? 내가 그걸 모를까...",
-    "리팩토링 하자고? 너 누군데",
-    "테스트 코드 짜라고? 너 누군데",
-    "문서화 하라고? 너 누군데",
-    "퀸은 에러에 울지 않아 (울고 있음)",
-    "퀸은 빌드 실패에 굴복 안 해 (굴복함)",
-    "버그 수정이 첫번째 레슨...",
-    "코드 리뷰가 첫번째 레슨...",
-
-    # GMG / MHM 등 신조어
-    "배포 GMG?",
-    "머지 GMG?",
-    "오늘 PR GMG?",
-    "버그 고쳤음 HMH~",
-    "빌드 성공 HMH HMH~",
-    "커밋 했음 HMH",
-    "에러 잡음 HMH HMH",
+    "Claude야 운동 많이 된다.",
 ]
 AI_MEMES = (_memes_cache.get('ai_memes') if _memes_cache else None) or _AI_MEMES_FALLBACK
 
@@ -290,18 +271,42 @@ sd_obj = rl.get('seven_day') or {}
 fh = fh_obj.get('used_percentage')
 sd = sd_obj.get('used_percentage')
 
-if fh is not None:
+if fh is not None and sd is not None:
+    # Live data — save to cache
+    _save_rl_cache(fh_obj, sd_obj)
     p = float(fh)
     countdown = fmt_remaining(fh_obj.get('resets_at'))
     parts.append(f"5h {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{RESET}{countdown}")
-else:
-    parts.append(f"5h {DIM}{bar(0)}{RESET} {DIM}--%{RESET}")
-if sd is not None:
     p = float(sd)
     countdown = fmt_remaining(sd_obj.get('resets_at'))
     parts.append(f"7d {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{RESET}{countdown}")
 else:
-    parts.append(f"7d {DIM}{bar(0)}{RESET} {DIM}--%{RESET}")
+    # Try cache fallback
+    _rl_cache = _load_rl_cache()
+    _cached_fh = _rl_cache.get('five_hour') or {}
+    _cached_sd = _rl_cache.get('seven_day') or {}
+    _cfh = _cached_fh.get('used_percentage') if fh is None else fh
+    _csd = _cached_sd.get('used_percentage') if sd is None else sd
+    _cfh_obj = _cached_fh if fh is None else fh_obj
+    _csd_obj = _cached_sd if sd is None else sd_obj
+    _fh_from_cache = fh is None and _cfh is not None
+    _sd_from_cache = sd is None and _csd is not None
+
+    if _cfh is not None:
+        p = float(_cfh)
+        countdown = fmt_remaining(_cfh_obj.get('resets_at'))
+        suffix = f"{DIM}~{RESET}" if _fh_from_cache else ""
+        parts.append(f"5h {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{suffix}{RESET}{countdown}")
+    else:
+        parts.append(f"5h {DIM}{bar(0)}{RESET} {DIM}--%{RESET}")
+
+    if _csd is not None:
+        p = float(_csd)
+        countdown = fmt_remaining(_csd_obj.get('resets_at'))
+        suffix = f"{DIM}~{RESET}" if _sd_from_cache else ""
+        parts.append(f"7d {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{suffix}{RESET}{countdown}")
+    else:
+        parts.append(f"7d {DIM}{bar(0)}{RESET} {DIM}--%{RESET}")
 
 # Context window
 ctx_pct = (data.get('context_window') or {}).get('used_percentage')
