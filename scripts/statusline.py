@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, sys, subprocess, os, time, random
+import json, sys, subprocess, os, time, random, urllib.request
 from datetime import datetime
 
 data = json.load(sys.stdin)
@@ -16,6 +16,49 @@ _custom_messages = _cfg.get('custom_messages', [])
 
 # Seed random based on interval — message stays fixed until next interval
 random.seed(int(time.time() // _interval_sec))
+
+# Meme cache — fetches memes.json from GitHub daily in background
+_MEMES_URL = "https://raw.githubusercontent.com/ITlearning/claude-statusline-memes/main/memes.json"
+_MEMES_CACHE_PATH = os.path.expanduser('~/.claude/statusline-memes-cache.json')
+_MEMES_CACHE_TTL = 86400  # 24 hours
+
+
+def _load_memes_cache():
+    try:
+        with open(_MEMES_CACHE_PATH) as _cf:
+            _cache = json.load(_cf)
+        if time.time() - _cache.get('fetched_at', 0) < _MEMES_CACHE_TTL:
+            return _cache
+        _refresh_memes_background()
+        return _cache  # use stale while refreshing
+    except Exception:
+        _refresh_memes_background()
+        return None
+
+
+def _refresh_memes_background():
+    _fetch_code = (
+        'import json,urllib.request,time,os;'
+        'url="' + _MEMES_URL + '";'
+        'cache_path="' + _MEMES_CACHE_PATH + '";'
+        'data=json.loads(urllib.request.urlopen(url,timeout=5).read());'
+        'data["fetched_at"]=time.time();'
+        'tmp=cache_path+".tmp";'
+        'open(tmp,"w").write(json.dumps(data));'
+        'os.replace(tmp,cache_path)'
+    )
+    try:
+        subprocess.Popen(
+            [sys.executable, '-c', _fetch_code],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+    except Exception:
+        pass
+
+
+_memes_cache = _load_memes_cache()
 
 # Colors
 GREEN  = '\033[32m'
@@ -52,7 +95,7 @@ BGGREEN = '\033[92m'
 BLUE    = '\033[34m'
 PINK    = '\033[95m'
 
-AI_MEMES = [
+_AI_MEMES_FALLBACK = [
     # Claude Code 밈
     "해결할 수 있습니다! (Claude Code를 키며)",
     "Claude한테 물어봤더니 더 헷갈림...",
@@ -117,6 +160,7 @@ AI_MEMES = [
     "커밋 했음 HMH",
     "에러 잡음 HMH HMH",
 ]
+AI_MEMES = (_memes_cache.get('ai_memes') if _memes_cache else None) or _AI_MEMES_FALLBACK
 
 def time_greeting():
     h = datetime.now().hour
@@ -217,6 +261,14 @@ def time_greeting():
             "git stash하고 자는 게 맞나...",
             "내일 오전 미팅 있는데...",
         ]
+    # Override msgs with cached version if available
+    _time_key = {0: 'late_night', 1: 'morning', 2: 'late_morning', 3: 'afternoon', 4: 'evening'}.get(
+        0 if h < 5 else 1 if h < 9 else 2 if h < 12 else 3 if h < 18 else 4 if h < 21 else 5
+    ) or 'night'
+    if _memes_cache:
+        _cached_msgs = (_memes_cache.get('time_memes') or {}).get(_time_key, {}).get('messages')
+        if _cached_msgs:
+            msgs = _cached_msgs
     # 20% 확률로 AI 밈 등장, 커스텀 메시지는 항상 풀에 포함
     pool = msgs + _custom_messages
     if random.random() < 0.2:
