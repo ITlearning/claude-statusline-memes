@@ -21,14 +21,14 @@ claude-sonnet-4-6 │ 5h ██░░░ 42% │ 7d █░░░░ 18% │ Ctx 
 **직접 설치:**
 
 ```bash
-/plugin install tabber/claude-statusline-memes
+/plugin install ITlearning/claude-statusline-memes
 ```
 
 **마켓플레이스로 설치:**
 
 ```bash
-/plugin marketplace add tabber/claude-statusline-memes
-/plugin install claude-statusline-memes@tabber
+/plugin marketplace add ITlearning/claude-statusline-memes
+/plugin install claude-statusline-memes@ITlearning
 ```
 
 설치 후 Claude Code를 재시작하면 첫 세션에서 자동으로 설정됩니다.
@@ -83,14 +83,14 @@ claude-sonnet-4-6 │ 5h ██░░░ 42% │ 7d █░░░░ 18% │ Ctx 
 **Direct install:**
 
 ```bash
-/plugin install tabber/claude-statusline-memes
+/plugin install ITlearning/claude-statusline-memes
 ```
 
 **Via marketplace:**
 
 ```bash
-/plugin marketplace add tabber/claude-statusline-memes
-/plugin install claude-statusline-memes@tabber
+/plugin marketplace add ITlearning/claude-statusline-memes
+/plugin install claude-statusline-memes@ITlearning
 ```
 
 After install, restart Claude Code. The statusline configures itself automatically on first session start.
