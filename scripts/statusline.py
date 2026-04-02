@@ -14,11 +14,14 @@ def _load_rl_cache():
     except Exception:
         return {}
 
-def _save_rl_cache(fh_obj, sd_obj, ctx_pct):
+def _save_rl_cache(**kwargs):
+    # Merge-update: only overwrite fields that have live data (never overwrite with None)
     try:
+        cache = _load_rl_cache()
+        cache.update({k: v for k, v in kwargs.items() if v is not None})
         tmp = _RL_CACHE_PATH + '.tmp'
         with open(tmp, 'w') as f:
-            json.dump({'five_hour': fh_obj, 'seven_day': sd_obj, 'ctx_pct': ctx_pct}, f)
+            json.dump(cache, f)
         os.replace(tmp, _RL_CACHE_PATH)
     except Exception:
         pass
@@ -268,7 +271,7 @@ model = (data.get('model') or {}).get('display_name', '')
 if model:
     parts.append(f"{DIM}{model}{RESET}")
 
-# Rate limits + context window (with cache fallback)
+# Rate limits (with cache fallback) + context window (no cache — resets each session)
 rl = data.get('rate_limits') or {}
 fh_obj = rl.get('five_hour') or {}
 sd_obj = rl.get('seven_day') or {}
@@ -276,12 +279,14 @@ fh = fh_obj.get('used_percentage')
 sd = sd_obj.get('used_percentage')
 ctx_pct = (data.get('context_window') or {}).get('used_percentage')
 
-# Save cache whenever any live data is available
-if fh is not None or sd is not None or ctx_pct is not None:
-    _save_rl_cache(fh_obj, sd_obj, ctx_pct)
+# Merge-update cache with any live rate limit data
+if fh is not None:
+    _save_rl_cache(five_hour=fh_obj)
+if sd is not None:
+    _save_rl_cache(seven_day=sd_obj)
 
-# Load cache for fallback
-_rl_cache = _load_rl_cache() if (fh is None or sd is None or ctx_pct is None) else {}
+# Load cache for 5h/7d fallback only
+_rl_cache = _load_rl_cache() if (fh is None or sd is None) else {}
 _cached_fh = _rl_cache.get('five_hour') or {}
 _cached_sd = _rl_cache.get('seven_day') or {}
 
@@ -307,13 +312,11 @@ if _sd is not None:
 else:
     parts.append(f"7d {DIM}{bar(0)}{RESET} {DIM}--%{RESET}")
 
-# Context window
-_ctx = ctx_pct if ctx_pct is not None else _rl_cache.get('ctx_pct')
-if _ctx is not None:
-    p = float(_ctx)
+# Context window — no cache fallback (resets each session, cached value would be misleading)
+if ctx_pct is not None:
+    p = float(ctx_pct)
     c = color_for(p)
-    suffix = f"{DIM}~{RESET}" if ctx_pct is None else ""
-    parts.append(f"Ctx {c}{bar(p, 6)}{RESET} {c}{p:.0f}%{suffix}{RESET}")
+    parts.append(f"Ctx {c}{bar(p, 6)}{RESET} {c}{p:.0f}%{RESET}")
 else:
     parts.append(f"Ctx {DIM}{bar(0, 6)}{RESET} {DIM}--%{RESET}")
 
