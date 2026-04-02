@@ -67,11 +67,78 @@ except Exception:
     raise
 PYEOF
 
-# Case 3: Different statusLine exists — output conflict message and exit
+# Case 3: Different statusLine exists — register both in registry, output conflict message and exit
 else
+    python3 - "$SCRIPT_PATH" "$current_command" <<'PYEOF'
+import json, sys, os, tempfile
+
+registry_path = os.path.expanduser('~/.claude/statusline-registry.json')
+our_command = sys.argv[1]
+existing_command = sys.argv[2]
+
+try:
+    with open(registry_path) as f:
+        registry = json.load(f)
+except Exception:
+    registry = {}
+
+if 'statuslines' not in registry or not isinstance(registry['statuslines'], list):
+    registry['statuslines'] = []
+
+# Register our plugin if not already present (by command)
+if not any(e.get('command') == our_command for e in registry['statuslines']):
+    registry['statuslines'].append({'name': 'claude-statusline-memes', 'command': our_command})
+
+# Register existing statusline if not already present (by command)
+if not any(e.get('command') == existing_command for e in registry['statuslines']):
+    # Infer name from command path
+    parent_dir = os.path.basename(os.path.dirname(existing_command))
+    file_stem = os.path.splitext(os.path.basename(existing_command))[0]
+    inferred_name = parent_dir if parent_dir not in ('scripts', 'bin', 'hooks', '') else file_stem
+    registry['statuslines'].append({'name': inferred_name, 'command': existing_command})
+
+tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(registry_path) if os.path.exists(os.path.dirname(registry_path)) else os.path.expanduser('~/.claude'))
+try:
+    with os.fdopen(tmp_fd, 'w') as f:
+        json.dump(registry, f, indent=2)
+    os.replace(tmp_path, registry_path)
+except Exception:
+    os.unlink(tmp_path)
+    raise
+PYEOF
     echo "STATUSLINE_CONFLICT: 이미 다른 statusline이 설정되어 있습니다 (${current_command}). /setup-statusline 커맨드를 실행하면 교체할 수 있습니다."
     exit 0
 fi
+
+# ── Register our plugin in statusline registry ─────────────────────────────
+python3 - "$SCRIPT_PATH" <<'PYEOF'
+import json, sys, os, tempfile
+
+registry_path = os.path.expanduser('~/.claude/statusline-registry.json')
+our_command = sys.argv[1]
+
+try:
+    with open(registry_path) as f:
+        registry = json.load(f)
+except Exception:
+    registry = {}
+
+if 'statuslines' not in registry or not isinstance(registry['statuslines'], list):
+    registry['statuslines'] = []
+
+# Register our plugin if not already present (by command)
+if not any(e.get('command') == our_command for e in registry['statuslines']):
+    registry['statuslines'].append({'name': 'claude-statusline-memes', 'command': our_command})
+
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(registry_path) if os.path.exists(os.path.dirname(registry_path)) else os.path.expanduser('~/.claude'))
+    try:
+        with os.fdopen(tmp_fd, 'w') as f:
+            json.dump(registry, f, indent=2)
+        os.replace(tmp_path, registry_path)
+    except Exception:
+        os.unlink(tmp_path)
+        raise
+PYEOF
 
 # ── Version check ──────────────────────────────────────────────────────────
 _VERSION_CACHE="$HOME/.claude/statusline-version-check.json"
