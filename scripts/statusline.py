@@ -14,11 +14,11 @@ def _load_rl_cache():
     except Exception:
         return {}
 
-def _save_rl_cache(fh_obj, sd_obj):
+def _save_rl_cache(fh_obj, sd_obj, ctx_pct):
     try:
         tmp = _RL_CACHE_PATH + '.tmp'
         with open(tmp, 'w') as f:
-            json.dump({'five_hour': fh_obj, 'seven_day': sd_obj}, f)
+            json.dump({'five_hour': fh_obj, 'seven_day': sd_obj, 'ctx_pct': ctx_pct}, f)
         os.replace(tmp, _RL_CACHE_PATH)
     except Exception:
         pass
@@ -96,13 +96,17 @@ def bar(pct, width=5):
     filled = round(pct * width / 100)
     return '█' * filled + '░' * (width - filled)
 
-def fmt_remaining(resets_at):
+def fmt_remaining(resets_at, use_days=False):
     if resets_at is None:
         return ''
     remaining = int(resets_at) - int(time.time())
     if remaining <= 0:
         return ''
-    h, m = divmod(remaining // 60, 60)
+    total_minutes = remaining // 60
+    h, m = divmod(total_minutes, 60)
+    if use_days and h >= 24:
+        d, h = divmod(h, 24)
+        return f' {d}d{h}h'
     if h > 0:
         return f' {h}h{m:02d}m'
     return f' {m}m'
@@ -264,56 +268,52 @@ model = (data.get('model') or {}).get('display_name', '')
 if model:
     parts.append(f"{DIM}{model}{RESET}")
 
-# Rate limits with reset countdown
+# Rate limits + context window (with cache fallback)
 rl = data.get('rate_limits') or {}
 fh_obj = rl.get('five_hour') or {}
 sd_obj = rl.get('seven_day') or {}
 fh = fh_obj.get('used_percentage')
 sd = sd_obj.get('used_percentage')
+ctx_pct = (data.get('context_window') or {}).get('used_percentage')
 
-if fh is not None and sd is not None:
-    # Live data — save to cache
-    _save_rl_cache(fh_obj, sd_obj)
-    p = float(fh)
-    countdown = fmt_remaining(fh_obj.get('resets_at'))
-    parts.append(f"5h {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{RESET}{countdown}")
-    p = float(sd)
-    countdown = fmt_remaining(sd_obj.get('resets_at'))
-    parts.append(f"7d {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{RESET}{countdown}")
+# Save cache whenever any live data is available
+if fh is not None or sd is not None or ctx_pct is not None:
+    _save_rl_cache(fh_obj, sd_obj, ctx_pct)
+
+# Load cache for fallback
+_rl_cache = _load_rl_cache() if (fh is None or sd is None or ctx_pct is None) else {}
+_cached_fh = _rl_cache.get('five_hour') or {}
+_cached_sd = _rl_cache.get('seven_day') or {}
+
+# 5h
+_fh = fh if fh is not None else _cached_fh.get('used_percentage')
+_fh_obj = fh_obj if fh is not None else _cached_fh
+if _fh is not None:
+    p = float(_fh)
+    countdown = fmt_remaining(_fh_obj.get('resets_at'))
+    suffix = f"{DIM}~{RESET}" if fh is None else ""
+    parts.append(f"5h {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{suffix}{RESET}{countdown}")
 else:
-    # Try cache fallback
-    _rl_cache = _load_rl_cache()
-    _cached_fh = _rl_cache.get('five_hour') or {}
-    _cached_sd = _rl_cache.get('seven_day') or {}
-    _cfh = _cached_fh.get('used_percentage') if fh is None else fh
-    _csd = _cached_sd.get('used_percentage') if sd is None else sd
-    _cfh_obj = _cached_fh if fh is None else fh_obj
-    _csd_obj = _cached_sd if sd is None else sd_obj
-    _fh_from_cache = fh is None and _cfh is not None
-    _sd_from_cache = sd is None and _csd is not None
+    parts.append(f"5h {DIM}{bar(0)}{RESET} {DIM}--%{RESET}")
 
-    if _cfh is not None:
-        p = float(_cfh)
-        countdown = fmt_remaining(_cfh_obj.get('resets_at'))
-        suffix = f"{DIM}~{RESET}" if _fh_from_cache else ""
-        parts.append(f"5h {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{suffix}{RESET}{countdown}")
-    else:
-        parts.append(f"5h {DIM}{bar(0)}{RESET} {DIM}--%{RESET}")
-
-    if _csd is not None:
-        p = float(_csd)
-        countdown = fmt_remaining(_csd_obj.get('resets_at'))
-        suffix = f"{DIM}~{RESET}" if _sd_from_cache else ""
-        parts.append(f"7d {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{suffix}{RESET}{countdown}")
-    else:
-        parts.append(f"7d {DIM}{bar(0)}{RESET} {DIM}--%{RESET}")
+# 7d
+_sd = sd if sd is not None else _cached_sd.get('used_percentage')
+_sd_obj = sd_obj if sd is not None else _cached_sd
+if _sd is not None:
+    p = float(_sd)
+    countdown = fmt_remaining(_sd_obj.get('resets_at'), use_days=True)
+    suffix = f"{DIM}~{RESET}" if sd is None else ""
+    parts.append(f"7d {color_for(p)}{bar(p)}{RESET} {color_for(p)}{p:.0f}%{suffix}{RESET}{countdown}")
+else:
+    parts.append(f"7d {DIM}{bar(0)}{RESET} {DIM}--%{RESET}")
 
 # Context window
-ctx_pct = (data.get('context_window') or {}).get('used_percentage')
-if ctx_pct is not None:
-    p = float(ctx_pct)
+_ctx = ctx_pct if ctx_pct is not None else _rl_cache.get('ctx_pct')
+if _ctx is not None:
+    p = float(_ctx)
     c = color_for(p)
-    parts.append(f"Ctx {c}{bar(p, 6)}{RESET} {c}{p:.0f}%{RESET}")
+    suffix = f"{DIM}~{RESET}" if ctx_pct is None else ""
+    parts.append(f"Ctx {c}{bar(p, 6)}{RESET} {c}{p:.0f}%{suffix}{RESET}")
 else:
     parts.append(f"Ctx {DIM}{bar(0, 6)}{RESET} {DIM}--%{RESET}")
 
