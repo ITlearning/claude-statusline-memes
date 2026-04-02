@@ -3,6 +3,10 @@ set -euo pipefail
 
 SETTINGS="$HOME/.claude/settings.json"
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$PLUGIN_ROOT" ]; then
+    echo "claude-statusline-memes: CLAUDE_PLUGIN_ROOT not set, skipping setup" >&2
+    exit 0
+fi
 SCRIPT_PATH="${PLUGIN_ROOT}/scripts/statusline.py"
 
 # Ensure settings.json exists
@@ -12,9 +16,9 @@ fi
 
 # Read current statusLine command (empty string if not set)
 current_command=$(python3 - <<PYEOF
-import json, sys
+import json, sys, os
 try:
-    with open('$SETTINGS') as f:
+    with open(os.path.expanduser('~/.claude/settings.json')) as f:
         data = json.load(f)
     sl = data.get('statusLine', {})
     if isinstance(sl, dict):
@@ -27,14 +31,14 @@ PYEOF
 )
 
 # Case 2: Already configured to this plugin — no-op
-if echo "$current_command" | grep -q "statusline.py"; then
+if echo "$current_command" | grep -q "claude-statusline-memes.*statusline\.py\|statusline\.py.*claude-statusline-memes"; then
     exit 0
 fi
 
 # Case 1: Not configured at all — auto-configure
 if [ -z "$current_command" ]; then
     python3 - "$SCRIPT_PATH" <<'PYEOF'
-import json, sys, os
+import json, sys, os, tempfile
 
 settings_path = os.path.expanduser('~/.claude/settings.json')
 script_path = sys.argv[1]
@@ -50,8 +54,14 @@ data['statusLine'] = {
     "command": script_path
 }
 
-with open(settings_path, 'w') as f:
-    json.dump(data, f, indent=2)
+tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(settings_path))
+try:
+    with os.fdopen(tmp_fd, 'w') as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp_path, settings_path)
+except Exception:
+    os.unlink(tmp_path)
+    raise
 PYEOF
     exit 0
 fi
