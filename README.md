@@ -87,6 +87,16 @@ claude-sonnet-4-6 │ 5h ░░░░░  8% │ 7d ██░░░ 36% │ Ctx 
 
 사용량에 따라 초록 → 노랑 → 빨강으로 색상이 바뀝니다.
 
+### 커스터마이즈 스킬
+
+설치 후 Claude Code에서 다음 커맨드로 statusline을 입맛대로 바꿀 수 있습니다:
+
+| 커맨드 | 설명 |
+|--------|------|
+| `/customize-colors` | 5h, 7d, Ctx 색상 변경 기준 조정 (전체 또는 항목별) |
+| `/customize-layout` | 표시 항목 순서 변경 / 숨기기 |
+| `/setup-statusline` | statusline 재설정 |
+
 ---
 
 <a name="english"></a>
@@ -171,6 +181,16 @@ Create `~/.claude/statusline-meme-config.json` to customize:
 | `⎇ branch` | Current git branch |
 
 Colors shift green → yellow → red as usage increases.
+
+### Customization Skills
+
+After install, use these commands in Claude Code to customize:
+
+| Command | Description |
+|---------|-------------|
+| `/customize-colors` | Adjust warning/danger thresholds for 5h, 7d, Ctx — globally or per-metric |
+| `/customize-layout` | Reorder or hide statusline elements |
+| `/setup-statusline` | Reconfigure the statusline |
 
 ## License
 
