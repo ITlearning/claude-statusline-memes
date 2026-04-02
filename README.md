@@ -49,7 +49,8 @@ claude-sonnet-4-6 │ 5h ░░░░░  8% │ 7d ██░░░ 36% │ Ctx 
 ```
 
 ### 실제 사용시 화면
-<img width="782" height="94" alt="image" src="https://github.com/user-attachments/assets/96590002-d6a9-4f72-88eb-f06f5e6e4d7f" />
+<img width="853" height="91" alt="image" src="https://github.com/user-attachments/assets/15313264-cd24-459a-b16d-e5f70e6563bb" />
+
 
 
 ### 설치
