@@ -367,7 +367,7 @@ if _ralph_state_path and os.path.isfile(_ralph_state_path):
                 for _line in _fm.strip().splitlines():
                     _line = _line.strip()
                     if _line.startswith('active:'):
-                        _ralph_active = 'true' in _line.lower()
+                        _ralph_active = _line.split(':', 1)[1].strip().lower() == 'true'
                     elif _line.startswith('iteration:'):
                         _ralph_iter = int(_line.split(':', 1)[1].strip())
                     elif _line.startswith('max_iterations:'):
@@ -387,8 +387,9 @@ if _ralph_state_path and os.path.isfile(_ralph_state_path):
                         _ralph_color = GREEN if _ralph_iter < 7 else YELLOW if _ralph_iter < 15 else RED
                         _ralph_txt = f"🔄 Ralph {_ralph_color}#{_ralph_iter}{RESET}"
                     parts.append(_ralph_txt)
-    except Exception:
-        pass
+    except Exception as e:
+        if os.environ.get('STATUSLINE_DEBUG'):
+            print(f"[DEBUG] Ralph loop error: {e}", file=sys.stderr)
 
 # Active agents indicator (SubagentStart/SubagentStop hook 기반)
 _agents_state_path = os.path.expanduser('~/.claude/statusline-agents.json')
@@ -398,9 +399,11 @@ try:
     # Filter stale agents (>2 hours)
     _agents = [a for a in _agents if time.time() - a.get('started_at', 0) < 7200]
     if _agents:
-        parts.append(f"{CYAN}🤖 {len(_agents)} agents{RESET}")
-except Exception:
-    pass
+        _agent_label = "agent" if len(_agents) == 1 else "agents"
+        parts.append(f"{CYAN}🤖 {len(_agents)} {_agent_label}{RESET}")
+except Exception as e:
+    if os.environ.get('STATUSLINE_DEBUG'):
+        print(f"[DEBUG] Agents indicator error: {e}", file=sys.stderr)
 
 t_color, t_text = time_greeting()
 parts.append(f"{t_color}{t_text}{RESET}")
