@@ -200,3 +200,64 @@ fi
 if [ -n "$_latest_version" ] && [ "$_latest_version" != "$_installed_version" ]; then
     echo "UPDATE_AVAILABLE: claude-statusline-memes v${_latest_version} 버전이 출시됐어요! (현재: v${_installed_version}) \`/plugin update claude-statusline-memes@ITlearning\` 으로 업데이트할 수 있어요."
 fi
+
+# ── Post-update changelog ─────────────────────────────────────────────────
+# Show what's new after plugin update (compare last seen version)
+_SEEN_VERSION_FILE="$HOME/.claude/statusline-seen-version"
+_last_seen=""
+if [ -f "$_SEEN_VERSION_FILE" ]; then
+    _last_seen=$(cat "$_SEEN_VERSION_FILE" 2>/dev/null)
+fi
+
+if [ -n "$_installed_version" ] && [ "$_last_seen" != "$_installed_version" ]; then
+    # Update seen version
+    echo "$_installed_version" > "$_SEEN_VERSION_FILE"
+
+    # Show changelog only if this is an upgrade (not first install)
+    if [ -n "$_last_seen" ]; then
+        _changelog=$(python3 -c "
+import urllib.request, json
+try:
+    url = 'https://api.github.com/repos/ITlearning/claude-statusline-memes/releases/tags/v${_installed_version}'
+    req = urllib.request.Request(url, headers={'User-Agent': 'claude-statusline-memes'})
+    data = json.loads(urllib.request.urlopen(req, timeout=5).read())
+    body = data.get('body', '')
+    if body:
+        print(body)
+except Exception:
+    pass
+" 2>/dev/null)
+
+        if [ -n "$_changelog" ]; then
+            echo ""
+            echo "🎉 claude-statusline-memes v${_installed_version} 업데이트 완료!"
+            echo ""
+            echo "$_changelog"
+        else
+            # Fallback: show tag annotation
+            _tag_msg=$(python3 -c "
+import urllib.request, json
+try:
+    url = 'https://api.github.com/repos/ITlearning/claude-statusline-memes/git/refs/tags/v${_installed_version}'
+    req = urllib.request.Request(url, headers={'User-Agent': 'claude-statusline-memes'})
+    ref = json.loads(urllib.request.urlopen(req, timeout=5).read())
+    tag_url = ref['object']['url']
+    req2 = urllib.request.Request(tag_url, headers={'User-Agent': 'claude-statusline-memes'})
+    tag = json.loads(urllib.request.urlopen(req2, timeout=5).read())
+    msg = tag.get('message', '')
+    if msg:
+        print(msg)
+except Exception:
+    pass
+" 2>/dev/null)
+            if [ -n "$_tag_msg" ]; then
+                echo ""
+                echo "🎉 claude-statusline-memes v${_installed_version} 업데이트 완료!"
+                echo ""
+                echo "$_tag_msg"
+            else
+                echo "🎉 claude-statusline-memes v${_installed_version} 업데이트 완료!"
+            fi
+        fi
+    fi
+fi
