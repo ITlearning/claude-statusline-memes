@@ -349,6 +349,59 @@ if cwd:
     except Exception:
         pass
 
+# Ralph Loop counter (inspired by oh-my-claudecode)
+_ralph_state_path = os.path.join(cwd, '.claude', 'ralph-loop.local.md') if cwd else ''
+if _ralph_state_path and os.path.isfile(_ralph_state_path):
+    try:
+        # Stale check: ignore state files older than 2 hours (abandoned sessions)
+        _ralph_mtime = os.path.getmtime(_ralph_state_path)
+        if time.time() - _ralph_mtime < 7200:
+            with open(_ralph_state_path) as _rf:
+                _ralph_raw = _rf.read()
+            if _ralph_raw.startswith('---'):
+                _fm_end = _ralph_raw.index('---', 3)
+                _fm = _ralph_raw[3:_fm_end]
+                _ralph_active = False
+                _ralph_iter = 0
+                _ralph_max = 0
+                for _line in _fm.strip().splitlines():
+                    _line = _line.strip()
+                    if _line.startswith('active:'):
+                        _ralph_active = 'true' in _line.lower()
+                    elif _line.startswith('iteration:'):
+                        _ralph_iter = int(_line.split(':', 1)[1].strip())
+                    elif _line.startswith('max_iterations:'):
+                        _ralph_max = int(_line.split(':', 1)[1].strip())
+                if _ralph_active:
+                    # Color by progress: green → yellow → red
+                    if _ralph_max > 0:
+                        _ralph_pct = _ralph_iter / _ralph_max
+                        if _ralph_pct >= 0.9:
+                            _ralph_color = RED
+                        elif _ralph_pct >= 0.7:
+                            _ralph_color = YELLOW
+                        else:
+                            _ralph_color = GREEN
+                        _ralph_txt = f"🔄 Ralph {_ralph_color}{_ralph_iter}/{_ralph_max}{RESET}"
+                    else:
+                        _ralph_color = GREEN if _ralph_iter < 7 else YELLOW if _ralph_iter < 15 else RED
+                        _ralph_txt = f"🔄 Ralph {_ralph_color}#{_ralph_iter}{RESET}"
+                    parts.append(_ralph_txt)
+    except Exception:
+        pass
+
+# Active agents indicator (SubagentStart/SubagentStop hook 기반)
+_agents_state_path = os.path.expanduser('~/.claude/statusline-agents.json')
+try:
+    with open(_agents_state_path) as _af:
+        _agents = json.load(_af).get('agents', [])
+    # Filter stale agents (>2 hours)
+    _agents = [a for a in _agents if time.time() - a.get('started_at', 0) < 7200]
+    if _agents:
+        parts.append(f"{CYAN}🤖 {len(_agents)} agents{RESET}")
+except Exception:
+    pass
+
 t_color, t_text = time_greeting()
 parts.append(f"{t_color}{t_text}{RESET}")
 if branch:
