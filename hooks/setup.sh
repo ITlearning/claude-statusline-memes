@@ -36,7 +36,16 @@ PYEOF
 
 # Case 2: Already configured to this plugin — fall through to version check
 if echo "$current_command" | grep -q "claude-statusline-memes.*statusline\.py\|statusline\.py.*claude-statusline-memes"; then
-    : # no-op
+    # Clean up stale conflict ack (our statusline is now active)
+    python3 - <<'PYEOF'
+import os
+ack_path = os.path.expanduser('~/.claude/statusline-conflict-acked.json')
+try:
+    if os.path.exists(ack_path):
+        os.unlink(ack_path)
+except Exception:
+    pass
+PYEOF
 
 # Case 1: Not configured at all — auto-configure, then fall through to version check
 elif [ -z "$current_command" ]; then
@@ -67,8 +76,42 @@ except Exception:
     raise
 PYEOF
 
+    # Clean up stale conflict ack (our statusline is now active)
+    python3 - <<'PYEOF'
+import os
+ack_path = os.path.expanduser('~/.claude/statusline-conflict-acked.json')
+try:
+    if os.path.exists(ack_path):
+        os.unlink(ack_path)
+except Exception:
+    pass
+PYEOF
+
 # Case 3: Different statusLine exists — register both in registry, output conflict message and exit
 else
+    # Check if user has already been notified about this exact conflict (once-only)
+    # STATUSLINE_FORCE env var bypasses the ack check (used by /setup-statusline)
+    _ack_status=$(python3 - "$current_command" <<'PYEOF'
+import json, os, sys
+ack_path = os.path.expanduser('~/.claude/statusline-conflict-acked.json')
+current = sys.argv[1]
+try:
+    with open(ack_path) as f:
+        data = json.load(f)
+    if isinstance(data, dict) and data.get('conflicting_command') == current:
+        print('acked')
+    else:
+        print('new')
+except Exception:
+    print('new')
+PYEOF
+)
+
+    if [ "${STATUSLINE_FORCE:-}" = "" ] && [ "$_ack_status" = "acked" ]; then
+        # User already acknowledged this conflict — silent exit
+        exit 0
+    fi
+
     python3 - "$SCRIPT_PATH" "$current_command" <<'PYEOF'
 import json, sys, os, tempfile
 
@@ -107,6 +150,35 @@ except Exception:
     raise
 PYEOF
     echo "STATUSLINE_CONFLICT: 이미 다른 statusline이 설정되어 있습니다 (${current_command}). /setup-statusline 커맨드를 실행하면 교체할 수 있습니다."
+
+    # Record ack so we don't spam the user on every subsequent session
+    python3 - "$current_command" <<'PYEOF'
+import json, os, sys, tempfile, time
+ack_path = os.path.expanduser('~/.claude/statusline-conflict-acked.json')
+current = sys.argv[1]
+payload = {
+    'conflicting_command': current,
+    'acked_at': int(time.time()),
+}
+try:
+    ack_dir = os.path.dirname(ack_path)
+    if not os.path.isdir(ack_dir):
+        ack_dir = os.path.expanduser('~/.claude')
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=ack_dir)
+    try:
+        with os.fdopen(tmp_fd, 'w') as f:
+            json.dump(payload, f, indent=2)
+        os.replace(tmp_path, ack_path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        raise
+except Exception:
+    pass
+PYEOF
+
     exit 0
 fi
 

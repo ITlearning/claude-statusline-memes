@@ -3,28 +3,15 @@ name: setup-statusline
 description: Set up or reconfigure the claude-statusline-memes statusline. Run this to install, reinstall, or replace an existing statusline configuration.
 ---
 
-Run the setup script to configure the statusline:
+1. 다음 명령을 실행하세요:
+   `STATUSLINE_FORCE=1 bash "${CLAUDE_PLUGIN_ROOT}/hooks/setup.sh"`
+2. 출력에 `STATUSLINE_CONFLICT` 가 포함되면:
+   - 사용자에게 "앗! 이미 사용하고 있는 statusline이 있어요. 지우고 claude-statusline-memes로 설치할까요?" 라고 질문
+   - 사용자가 긍정("네", "yes", "ok", "덮어써", "교체" 등)으로 답하면:
+     - 다음 명령을 실행: `bash "${CLAUDE_PLUGIN_ROOT}/hooks/replace-statusline.sh"`
+     - 실행 후 출력을 그대로 사용자에게 보여줌
+   - 사용자가 부정("아니오", "no", "취소" 등)으로 답하면:
+     - 어떤 파일도 읽거나 수정하지 마세요. 오직 "알겠습니다. 변경사항 없습니다." 라고만 답해주세요.
+3. 출력에 `STATUSLINE_CONFLICT` 가 없으면 "✅ claude-statusline-memes statusline이 설정되었습니다!" 라고 확인만 해주세요.
 
-1. Run: `CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}" bash "${CLAUDE_PLUGIN_ROOT}/hooks/setup.sh"`
-2. If the output contains "STATUSLINE_CONFLICT":
-   - Tell the user: "앗! 이미 사용하고 있는 statusline이 있어요. 지우고 claude-statusline-memes로 설치할까요?"
-   - If user says yes: run the following to replace it:
-     ```bash
-     python3 - "${CLAUDE_PLUGIN_ROOT}/scripts/statusline.py" <<'PYEOF'
-     import json, sys, os, tempfile
-     settings_path = os.path.expanduser('~/.claude/settings.json')
-     script_path = sys.argv[1]
-     with open(settings_path) as f: data = json.load(f)
-     data['statusLine'] = {"type": "command", "command": script_path}
-     tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(settings_path))
-     try:
-         with os.fdopen(tmp_fd, 'w') as f: json.dump(data, f, indent=2)
-         os.replace(tmp_path, settings_path)
-     except Exception:
-         os.unlink(tmp_path)
-         raise
-     print("✅ 설정 완료! 다음 세션부터 새 statusline이 표시됩니다.")
-     PYEOF
-     ```
-   - If user says no: leave settings unchanged and confirm no changes made.
-3. If no conflict output: confirm "✅ claude-statusline-memes statusline이 설정되었습니다!"
+**중요: 이 슬래시 커맨드를 처리할 때 `scripts/statusline.py` 등 플러그인 내부 파일을 Read tool로 열지 마세요. 위의 명령만 실행하세요.**
