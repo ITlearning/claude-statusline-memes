@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import json, sys, subprocess, os, time, random, urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import context_budget
 from datetime import datetime
 
 data = json.load(sys.stdin)
@@ -336,6 +338,30 @@ if ctx_pct is not None:
     parts.append(f"Ctx {c}{bar(p, 6)}{RESET} {c}{p:.0f}%{RESET}")
 else:
     parts.append(f"Ctx {DIM}{bar(0, 6)}{RESET} {DIM}--%{RESET}")
+
+# Context budget: explicit /clear cue when usage crosses the warn threshold
+try:
+    _warn_pct = float(_cfg.get('budget_warn_pct', 80))
+    if context_budget.should_warn(ctx_pct, _warn_pct):
+        parts.append(f"{RED}⚠️ /clear{RESET}")
+except Exception as e:
+    if os.environ.get('STATUSLINE_DEBUG'):
+        print(f"[DEBUG] budget warn error: {e}", file=sys.stderr)
+
+# Message count vs budget (msg>200 is a B trigger; transcript counted, mtime-cached)
+try:
+    _msg_budget = int(_cfg.get('msg_budget', 200))
+    _n = context_budget.count_messages(
+        data.get('transcript_path'),
+        os.path.expanduser('~/.claude/statusline-msgcount-cache.json'),
+    )
+    if _n is not None and _msg_budget > 0:
+        _ratio = _n / _msg_budget
+        _mc = RED if _ratio >= 0.9 else YELLOW if _ratio >= 0.7 else GREEN
+        parts.append(f"{_mc}msgs {_n}/{_msg_budget}{RESET}")
+except Exception as e:
+    if os.environ.get('STATUSLINE_DEBUG'):
+        print(f"[DEBUG] msg count error: {e}", file=sys.stderr)
 
 # Git branch + time greeting
 cwd = (data.get('workspace') or {}).get('current_dir') or data.get('cwd', '')
