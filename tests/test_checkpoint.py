@@ -43,5 +43,48 @@ class TestExtractLastPrompt(unittest.TestCase):
         self.assertEqual(ck.extract_last_prompt(self.dir + '/nope'), '')
 
 
+class TestBuildAndRun(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.cp = os.path.join(self.dir, 'checkpoints')
+        self.tx = os.path.join(self.dir, 't.jsonl')
+        with open(self.tx, 'w') as f:
+            f.write(json.dumps({"type": "user", "message": {"content": "do the thing"}}) + '\n')
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def test_build_block_has_fields(self):
+        block = ck.build_block('2026-06-08T08:55Z', 'auto', '/x', 'main', 'abc1234',
+                               'sess1', 'hello', '/t.jsonl')
+        self.assertIn('## 2026-06-08T08:55Z · auto · /x', block)
+        self.assertIn('branch: main (HEAD abc1234)', block)
+        self.assertIn('session: sess1', block)
+        self.assertIn('last prompt: "hello"', block)
+        self.assertIn('transcript: /t.jsonl', block)
+
+    def test_run_writes_checkpoint(self):
+        data = {"cwd": self.dir, "transcript_path": self.tx,
+                "session_id": "s1", "trigger": "manual"}
+        path = ck.run(data, '2026-06-08T09:00Z', self.cp)
+        self.assertTrue(os.path.exists(path))
+        body = open(path).read()
+        self.assertIn('· manual · ' + self.dir, body)
+        self.assertIn('last prompt: "do the thing"', body)
+
+    def test_run_handles_non_git_cwd_and_missing_trigger(self):
+        data = {"cwd": self.dir, "transcript_path": self.tx, "session_id": "s2"}
+        path = ck.run(data, '2026-06-08T09:01Z', self.cp)
+        body = open(path).read()
+        self.assertIn('· compact · ', body)
+        self.assertIn('branch: ?', body)
+
+    def test_run_appends(self):
+        data = {"cwd": self.dir, "transcript_path": self.tx, "session_id": "s3"}
+        p1 = ck.run(data, '2026-06-08T09:02Z', self.cp)
+        ck.run(data, '2026-06-08T09:03Z', self.cp)
+        self.assertEqual(open(p1).read().count('## '), 2)
+
+
 if __name__ == '__main__':
     unittest.main()
